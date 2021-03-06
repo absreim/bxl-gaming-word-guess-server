@@ -6,11 +6,12 @@
     "lib": ["es2020"],
     "module": "commonjs",
     "target": "es2020",
-
+    "resolveJsonModule": true,
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "build"
   },
 
   "exclude": [
