@@ -1,7 +1,7 @@
 import axios from 'axios';
-import {io} from 'socket.io-client';
+import { io } from 'socket.io-client';
 
-import {checkRequiredEnvVars} from './util';
+import { checkRequiredEnvVars } from './util';
 
 const requiredEnvVars = ['SERVER_URL', 'CLIENT_ID', 'CLIENT_SECRET', 'AUDIENCE', 'TOKEN_API_URL'];
 
@@ -75,4 +75,5 @@ function testSocketAuth(accessToken: string) {
 	});
 }
 
+// Socket.io client does not prevent script from exiting
 setInterval(() => {}, 1 << 30);

@@ -1,9 +1,9 @@
-import {createServer} from 'http';
-import {Server, Socket} from 'socket.io';
+import { createServer } from 'http';
+import { Server, Socket } from 'socket.io';
 import jwksRsa from 'jwks-rsa';
 import jwt from 'jsonwebtoken';
 
-import {checkRequiredEnvVars} from './util';
+import { checkRequiredEnvVars } from './util';
 
 const requiredEnvVars = ['PORT', 'JWKS_URI'];
 
@@ -24,23 +24,45 @@ const io = new Server(httpServer, {
 	transports: ['websocket']
 });
 
+type UserType = 'Machine' | 'User';
+
 type UserInfo = {
 	username: string,
-	uniqueId: string
+	uniqueId: string,
+	type: UserType
 };
 
 const userInfoCache = new Map<string, UserInfo>();
+
+interface PayloadWithExpectedClaims {
+	gty: string,
+	sub: string
+};
+
+interface PayloadWithExpectedUserClaims {
+	name: string
+};
 
 function verifyTokenPayload(payload: object | undefined) {
 	if (payload === undefined) {
 		return false;
 	}
-	const expectedClaims = ['name', 'sub'];
+	const expectedClaims = ['sub', 'gty'];
 	for (let claim of expectedClaims) {
 		if (!(claim in payload) || typeof((payload as any)[claim]) !== 'string') {
 			return false;
 		}
 	}
+	const grantType = (payload as PayloadWithExpectedClaims).gty;
+	if (grantType === 'client_credentials'){
+		const expectedUserClaims = ['name'];
+		for (let claim of expectedUserClaims) {
+			if (!(claim in payload) || typeof((payload as any)[claim]) !== 'string') {
+				return false;
+			}
+		}
+	}
+
 	return true;
 }
 
@@ -95,9 +117,14 @@ io.on('connection', async (socket: Socket) => {
 		return;
 	}
 
+	const grantType = (payload as PayloadWithExpectedClaims).gty;
+	const userType: UserType = grantType === 'client_credentials' ? 'Machine' : 'User';
+	const sub = (payload as PayloadWithExpectedClaims).sub;
+
 	const userInfo: UserInfo = {
-		username: (payload as any).name,
-		uniqueId: (payload as any).sub
+		username: userType === 'User' ? (payload as PayloadWithExpectedUserClaims).name : sub,
+		uniqueId: sub,
+		type: userType
 	};
 	userInfoCache.set(socket.id, userInfo);
 	socket.emit('authenticated', userInfo);
