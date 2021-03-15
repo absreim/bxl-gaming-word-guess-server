@@ -49,7 +49,8 @@ function verifyTokenPayload(payload: object | undefined) {
 	}
 	const expectedClaims = ['sub', 'gty'];
 	for (let claim of expectedClaims) {
-		if (!(claim in payload) || typeof((payload as any)[claim]) !== 'string') {
+		if (!(claim in payload) || typeof((payload as { [p: string]: string | null | undefined })[claim])
+			!== 'string') {
 			return false;
 		}
 	}
@@ -57,7 +58,8 @@ function verifyTokenPayload(payload: object | undefined) {
 	if (grantType === 'client_credentials'){
 		const expectedUserClaims = ['name'];
 		for (let claim of expectedUserClaims) {
-			if (!(claim in payload) || typeof((payload as any)[claim]) !== 'string') {
+			if (!(claim in payload) ||
+				typeof((payload as { [p: string]: string | null | undefined })[claim]) !== 'string') {
 				return false;
 			}
 		}
@@ -79,20 +81,24 @@ io.on('connection', async (socket: Socket) => {
 		return;
 	}
 
+	interface DecodedTokenWithExpectedFields {
+		header: { kid: string } | null | undefined;
+	};
+
 	const token = socketAuth['token'];
-	const decodedToken = jwt.decode(token, { complete: true }) as ({ [p: string]: any } | null);
+	const decodedToken = jwt.decode(token, { complete: true });
 
 	if (decodedToken === null) {
 		handleAuthError(socket, 'Failed to decode token.');
 		return;
 	}
 
-	if (typeof(decodedToken.header?.kid) !== 'string') {
+	if (typeof((decodedToken as DecodedTokenWithExpectedFields).header?.kid) !== 'string') {
 		handleAuthError(socket, 'KID not found in token header.');
 		return;
 	}
 
-	const kid: string = decodedToken.header.kid;
+	const kid: string = (decodedToken as DecodedTokenWithExpectedFields).header!.kid;
 	const signingKey = await jwksClient.getSigningKeyAsync(kid);
 	let payload: object | undefined = undefined;
 	try {
@@ -118,7 +124,7 @@ io.on('connection', async (socket: Socket) => {
 	}
 
 	const grantType = (payload as PayloadWithExpectedClaims).gty;
-	const userType: UserType = grantType === 'client_credentials' ? 'Machine' : 'User';
+	const userType: UserType = grantType === 'client-credentials' ? 'Machine' : 'User';
 	const sub = (payload as PayloadWithExpectedClaims).sub;
 
 	const userInfo: UserInfo = {

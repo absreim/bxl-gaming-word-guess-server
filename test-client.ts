@@ -36,7 +36,7 @@ axios({
 	.then(
 		(response) => {
 			const responseData = response.data;
-			function validateResponseType(responseData: any) {
+			function validateResponseType(responseData: AuthZeroTokenResponse) {
 				return !!responseData && typeof(responseData['access_token'] === 'string' &&
 					typeof(responseData['token_type']) === 'string');
 			}
