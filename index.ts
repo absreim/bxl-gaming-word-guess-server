@@ -9,10 +9,10 @@ const requiredEnvVars = ['PORT', 'JWKS_URI'];
 
 checkRequiredEnvVars(requiredEnvVars);
 
-const port = process.env['PORT']!;
-const jwksUri = process.env['JWKS_URI']!;
+const port = process.env['PORT'];
+const jwksUri = process.env['JWKS_URI'];
 
-const jwksClient = jwksRsa({jwksUri});
+const jwksClient = jwksRsa({jwksUri: jwksUri as string});
 
 const httpServer = createServer();
 const io = new Server(httpServer, {
@@ -37,19 +37,20 @@ const userInfoCache = new Map<string, UserInfo>();
 interface PayloadWithExpectedClaims {
 	gty: string,
 	sub: string
-};
+}
 
 interface PayloadWithExpectedUserClaims {
 	name: string
-};
+}
 
-function verifyTokenPayload(payload: object | undefined) {
+function verifyTokenPayload(payload: unknown | undefined) {
 	if (payload === undefined) {
 		return false;
 	}
 	const expectedClaims = ['sub', 'gty'];
-	for (let claim of expectedClaims) {
-		if (!(claim in payload) || typeof((payload as { [p: string]: string | null | undefined })[claim])
+	for (const claim of expectedClaims) {
+		if (!(claim in (payload as Record<string, unknown>)) ||
+			typeof((payload as { [p: string]: string | null | undefined })[claim])
 			!== 'string') {
 			return false;
 		}
@@ -57,8 +58,8 @@ function verifyTokenPayload(payload: object | undefined) {
 	const grantType = (payload as PayloadWithExpectedClaims).gty;
 	if (grantType === 'client_credentials'){
 		const expectedUserClaims = ['name'];
-		for (let claim of expectedUserClaims) {
-			if (!(claim in payload) ||
+		for (const claim of expectedUserClaims) {
+			if (!(claim in (payload as Record<string, unknown>)) ||
 				typeof((payload as { [p: string]: string | null | undefined })[claim]) !== 'string') {
 				return false;
 			}
@@ -83,7 +84,7 @@ io.on('connection', async (socket: Socket) => {
 
 	interface DecodedTokenWithExpectedFields {
 		header: { kid: string } | null | undefined;
-	};
+	}
 
 	const token = socketAuth['token'];
 	const decodedToken = jwt.decode(token, { complete: true });
@@ -93,14 +94,16 @@ io.on('connection', async (socket: Socket) => {
 		return;
 	}
 
-	if (typeof((decodedToken as DecodedTokenWithExpectedFields).header?.kid) !== 'string') {
+	const tokenHeader = (decodedToken as DecodedTokenWithExpectedFields).header;
+
+	if (tokenHeader === null || tokenHeader === undefined) {
 		handleAuthError(socket, 'KID not found in token header.');
 		return;
 	}
 
-	const kid: string = (decodedToken as DecodedTokenWithExpectedFields).header!.kid;
+	const kid: string = tokenHeader.kid;
 	const signingKey = await jwksClient.getSigningKeyAsync(kid);
-	let payload: object | undefined = undefined;
+	let payload: unknown;
 	try {
 		payload = await new Promise((resolve, reject) => {
 			jwt.verify(token, signingKey.getPublicKey(), { algorithms: ['RS256'] },

@@ -11,7 +11,7 @@ const clientId = process.env['CLIENT_ID'];
 const clientSecret = process.env['CLIENT_SECRET'];
 const audience = process.env['AUDIENCE'];
 const tokenApiUrl = process.env['TOKEN_API_URL'];
-const serverUrl: string = process.env['SERVER_URL']!;
+const serverUrl = process.env['SERVER_URL'];
 
 const tokenRequestBodyObj = {
 	'client_id': clientId,
@@ -23,7 +23,7 @@ const tokenRequestBodyObj = {
 interface AuthZeroTokenResponse {
 	'access_token': string,
 	'token_type': string
-};
+}
 
 axios({
 	method: 'POST',
@@ -55,7 +55,7 @@ axios({
 	);
 
 function testSocketAuth(accessToken: string) {
-	const socket = io(serverUrl, {
+	const socket = io(serverUrl as string, {
 		transports: ['websocket'],
 		withCredentials: true,
 		auth: {
@@ -64,16 +64,18 @@ function testSocketAuth(accessToken: string) {
 	});
 	socket.on('connect', () => console.log(`Connected with ID: ${socket.id}`));
 	socket.on('authenticated', (data) => {
-		console.log(`Authenticated successfully:`, data);
+		console.log('Authenticated successfully:', data);
 		socket.disconnect();
 		process.exit(0);
 	});
 	socket.on('authFailure', (data) => {
-		console.error(`Authentication failed:`, data);
+		console.error('Authentication failed:', data);
 		socket.disconnect();
 		process.exit(1);
 	});
 }
 
 // Socket.io client does not prevent script from exiting
-setInterval(() => {}, 1 << 30);
+setInterval(() => {
+	Function.prototype();
+}, 1 << 30);
